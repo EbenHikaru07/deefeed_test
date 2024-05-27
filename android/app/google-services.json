@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "866408196709",
+    "project_id": "deefeed-test-4af92",
+    "storage_bucket": "deefeed-test-4af92.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:866408196709:android:4d1be4aa168f992710f48c",
+        "android_client_info": {
+          "package_name": "com.example.deefeed2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCsOHAnm8uYtOfPgdwz-Fd6sKWXxq1glSw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:866408196709:android:32bdae7746279e7710f48c",
+        "android_client_info": {
+          "package_name": "com.example.maniapakan"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCsOHAnm8uYtOfPgdwz-Fd6sKWXxq1glSw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
