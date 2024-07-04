@@ -17,6 +17,23 @@ class _FormPengisianDataPageState extends State<FormPengisianDataPage> {
   String? _namaAlat;
   String? _ukuranAlat;
   String? _dayaTampung;
+  String? _selectedKodeUser;
+  List<String> _kodeUsers = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchKodeUsers();
+  }
+
+  Future<void> _fetchKodeUsers() async {
+    final QuerySnapshot snapshot =
+        await FirebaseFirestore.instance.collection('users').get();
+    setState(() {
+      _kodeUsers =
+          snapshot.docs.map((doc) => doc['kode_user'] as String).toList();
+    });
+  }
 
   Future<void> _pickImage() async {
     final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
@@ -44,6 +61,7 @@ class _FormPengisianDataPageState extends State<FormPengisianDataPage> {
         'ukuran_alat': _ukuranAlat,
         'daya_tampung': _dayaTampung,
         'status_alat': "pending",
+        'kode_user': _selectedKodeUser,
       });
       Navigator.pop(context);
     }
@@ -78,6 +96,27 @@ class _FormPengisianDataPageState extends State<FormPengisianDataPage> {
                       ? Icon(Icons.add_a_photo, size: 50)
                       : Image.file(_image!, fit: BoxFit.cover),
                 ),
+              ),
+              DropdownButtonFormField<String>(
+                value: _selectedKodeUser,
+                hint: Text('Pilih Kode User'),
+                items: _kodeUsers.map((kodeUser) {
+                  return DropdownMenuItem<String>(
+                    value: kodeUser,
+                    child: Text(kodeUser),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedKodeUser = value;
+                  });
+                },
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Kode User tidak boleh kosong';
+                  }
+                  return null;
+                },
               ),
               TextFormField(
                 decoration: InputDecoration(labelText: 'Kode Alat'),

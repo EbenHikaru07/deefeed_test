@@ -1,5 +1,5 @@
 // Import yang diperlukan
-import 'package:deefeed2/tambah_alat.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:deefeed2/bottombar/bottom_nav_bar.dart';
@@ -41,6 +41,29 @@ class DashboardPage extends StatefulWidget {
 // DashboardPage State
 class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  User? _user;
+  Map<String, dynamic>? _userData;
+
+  @override
+  void initState() {
+    super.initState();
+    _user = _auth.currentUser;
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    final DocumentSnapshot userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(_user?.uid)
+        .get();
+
+    if (userDoc.exists) {
+      setState(() {
+        _userData = userDoc.data() as Map<String, dynamic>;
+      });
+    }
+  }
 
   void _showAddDataForm(BuildContext context) {
     showModalBottomSheet(
@@ -83,14 +106,14 @@ class _DashboardPageState extends State<DashboardPage> {
                       Icon(
                         Icons.account_circle_sharp,
                         color: Colors.black,
-                        size: 35,
+                        size: 45,
                       ),
                       SizedBox(width: 8),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Nama Profil',
+                            _userData?['nama_lengkap'] ?? 'Nama Profil',
                             style: TextStyle(
                               color: Colors.black,
                               fontSize: 18,
@@ -98,7 +121,7 @@ class _DashboardPageState extends State<DashboardPage> {
                             ),
                           ),
                           Text(
-                            'Pekerjaan',
+                            _userData?['pekerjaan'] ?? 'Pekerjaan',
                             style: TextStyle(
                               color: Colors.black,
                               fontSize: 16,
@@ -112,10 +135,15 @@ class _DashboardPageState extends State<DashboardPage> {
                 Positioned(
                   top: 50,
                   right: 16,
-                  child: Icon(
-                    Icons.notifications,
-                    color: Colors.black,
-                    size: 34,
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.notifications,
+                        color: Colors.black,
+                        size: 34,
+                      ),
+                      SizedBox(width: 16),
+                    ],
                   ),
                 ),
                 Positioned(
@@ -130,9 +158,9 @@ class _DashboardPageState extends State<DashboardPage> {
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black26,
-                          spreadRadius: 3,
-                          blurRadius: 8,
-                          offset: Offset(0, 2),
+                          spreadRadius: 1,
+                          blurRadius: 1,
+                          offset: Offset(0, 1),
                         ),
                       ],
                     ),
@@ -149,7 +177,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                 ),
                               ),
                               child: Image.asset(
-                                'assets/images/alat_keren1.png', // Ganti dengan path gambar Anda
+                                'assets/images/alat_keren1.png',
                                 width: 300,
                                 height: 300,
                                 fit: BoxFit.cover,
@@ -167,35 +195,61 @@ class _DashboardPageState extends State<DashboardPage> {
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black12, // Warna bayangan
-                                  spreadRadius: 2, // Penyebaran bayangan
-                                  blurRadius: 2, // Jarak blur bayangan
-                                  offset: Offset(0, 1), // Offset bayangan
+                                  color: Colors.black12,
+                                  spreadRadius: 1,
+                                  blurRadius: 1,
+                                  offset: Offset(0, 1),
                                 ),
                               ],
                             ),
                             alignment: Alignment.center,
-                            padding: EdgeInsets.all(10.0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  '15 Alat Pakan',
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                Text(
-                                  '10 Alat Pakan Aktif',
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
+                            padding: EdgeInsets.all(8.0),
+                            child: StreamBuilder<QuerySnapshot>(
+                              stream: FirebaseFirestore.instance
+                                  .collection('data_alat')
+                                  .snapshots(),
+                              builder: (BuildContext context,
+                                  AsyncSnapshot<QuerySnapshot> snapshot) {
+                                if (snapshot.hasError) {
+                                  return Text('Something went wrong');
+                                }
+
+                                if (snapshot.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return CircularProgressIndicator();
+                                }
+
+                                final List<DocumentSnapshot> documents =
+                                    snapshot.data!.docs;
+                                final int totalAlat = documents.length;
+                                final int alatAktif = documents
+                                    .where((doc) =>
+                                        doc['status_alat'] == 'Berjalan')
+                                    .length;
+
+                                return Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      '$totalAlat Alat Pakan',
+                                      style: TextStyle(
+                                        color: Colors.black,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      '$alatAktif/$totalAlat Alat Pakan Aktif',
+                                      style: TextStyle(
+                                        color: Colors.black,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
                           ),
                         ),
@@ -211,200 +265,273 @@ class _DashboardPageState extends State<DashboardPage> {
           // Container 2
           Expanded(
             child: Container(
-              color: Colors.grey[300],
-              child: SingleChildScrollView(
-                padding: EdgeInsets.all(15),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Kolam',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Container(
-                          width: 150,
-                          child: TextButton.icon(
-                            onPressed: () {
-                              _showAddDataForm(context);
-                            },
-                            icon: Icon(Icons.add_circle_sharp,
-                                color: Colors
-                                    .blue), // Ikon tambah dengan warna hitam
-                            label: Text(
-                              'Tambah Data',
-                              style: TextStyle(
-                                  color: Colors.black,
-                                  fontWeight: FontWeight
-                                      .bold), // Teks dengan warna hitam
-                            ),
-                            style: TextButton.styleFrom(
-                              backgroundColor: Colors
-                                  .transparent, // Latar belakang transparan
-                            ),
-                          ),
+              color: const Color.fromARGB(255, 174, 196, 214),
+              child: Column(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors
+                          .blue[200], // Warna latar belakang dengan opacity 0.1
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black26,
+                          spreadRadius: 1,
+                          blurRadius: 2,
+                          offset: Offset(0, 3),
                         ),
                       ],
                     ),
-                    StreamBuilder<QuerySnapshot>(
-                      stream: FirebaseFirestore.instance
-                          .collection('datakolam')
-                          .snapshots(),
-                      builder: (BuildContext context,
-                          AsyncSnapshot<QuerySnapshot> snapshot) {
-                        if (snapshot.hasError) {
-                          return Text('Something went wrong');
-                        }
-
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return CircularProgressIndicator();
-                        }
-
-                        final List<DocumentSnapshot> documents =
-                            snapshot.data!.docs;
-                        if (documents.isEmpty) {
-                          return Center(
-                            child: Text(
-                              'Tidak ada data',
-                              style:
-                                  TextStyle(fontSize: 18, color: Colors.grey),
+                    padding: EdgeInsets.all(5),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              'Kolam',
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          );
-                        }
-                        return ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: documents.length,
-                          itemBuilder: (BuildContext context, int index) {
-                            final Map<String, dynamic> data =
-                                documents[index].data() as Map<String, dynamic>;
-                            return GestureDetector(
-                              onTap: () {
-                                // Navigasi ke halaman detail dengan membawa data kolam yang dipilih
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => DetailPage(data: {
-                                      'kode_alat': data['kode_alat'],
-                                      'nama_alat': data[
-                                          'nama_alat'], // Mengirim nama_alat dari data Firestore
-                                      'nama_kolam': data[
-                                          'nama_kolam'], // Mengirim nama_alat dari data Firestore
-                                      'luas_kolam': data[
-                                          'luas_kolam'], // Mengirim nama_alat dari data Firestore
-                                      'jenis_ikan': data[
-                                          'jenis_ikan'], // Mengirim nama_alat dari data Firestore
-                                      'jumlah_ikan': data[
-                                          'jumlah_ikan'], // Mengirim nama_alat dari data Firestore
-                                      'total_pakan': data[
-                                          'total_pakan'], // Tambahkan data lainnya yang ingin Anda kirim ke DetailPage
-                                    }),
+                            SizedBox(width: 10),
+                            Icon(
+                              Icons.water, // menggunakan ikon air
+                              color: Colors.blue, // warna biru
+                              size: 30, // ukuran 40
+                            ),
+                            SizedBox(
+                                width: 8), // memberi jarak antara ikon dan teks
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.all(15),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: double.infinity,
+                            child: TextButton.icon(
+                              onPressed: () {
+                                _showAddDataForm(context);
+                              },
+                              icon: Icon(Icons.add_circle_sharp,
+                                  color: Colors.blue),
+                              label: Text(
+                                'Tambah Kolam',
+                                style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold),
+                              ),
+                              style: TextButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                              ),
+                            ),
+                          ),
+                          StreamBuilder<QuerySnapshot>(
+                            stream: FirebaseFirestore.instance
+                                .collection('datakolam')
+                                .where('user_uid', isEqualTo: _user?.uid)
+                                .snapshots(),
+                            builder: (BuildContext context,
+                                AsyncSnapshot<QuerySnapshot> snapshot) {
+                              if (snapshot.hasError) {
+                                return Text('Something went wrong');
+                              }
+
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return CircularProgressIndicator();
+                              }
+
+                              final List<DocumentSnapshot> documents =
+                                  snapshot.data!.docs;
+                              if (documents.isEmpty) {
+                                return Center(
+                                  child: Text(
+                                    'Tidak ada data',
+                                    style: TextStyle(
+                                        fontSize: 18, color: Colors.grey),
                                   ),
                                 );
-                              },
-                              child: Container(
-                                width: double.infinity,
-                                height: 100,
-                                margin: EdgeInsets.symmetric(vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(10),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black26,
-                                      spreadRadius: 2,
-                                      blurRadius: 5,
-                                      offset: Offset(0, 3),
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  children: [
-                                    Padding(
-                                      padding: const EdgeInsets.all(15.0),
-                                      child: Image.network(
-                                        data[
-                                            'image'], // Tampilkan gambar dari URL Firebase
-                                        width: 60,
-                                        height: 60,
-                                        fit: BoxFit.cover,
-                                      ),
-                                    ),
-                                    SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            data[
-                                                'nama_alat'], // Tampilkan nama alat dari data Firestore
-                                            style: TextStyle(
-                                              color: Colors.black,
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
+                              }
+
+                              return Column(
+                                children:
+                                    documents.map((DocumentSnapshot document) {
+                                  final Map<String, dynamic> data =
+                                      document.data() as Map<String, dynamic>;
+                                  return GestureDetector(
+                                    onTap: () async {
+                                      final DocumentSnapshot userDoc =
+                                          await FirebaseFirestore.instance
+                                              .collection('users')
+                                              .doc(_user?.uid)
+                                              .get();
+
+                                      if (userDoc.exists) {
+                                        final Map<String, dynamic> userData =
+                                            userDoc.data()
+                                                as Map<String, dynamic>;
+
+                                        Navigator.pushReplacement(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => DetailPage(
+                                              data: {
+                                                'kode_alat': data['kode_alat'],
+                                                'nama_alat': data['nama_alat'],
+                                                'nama_kolam':
+                                                    data['nama_kolam'],
+                                                'luas_kolam':
+                                                    data['luas_kolam'],
+                                                'jenis_ikan':
+                                                    data['jenis_ikan'],
+                                                'jumlah_ikan':
+                                                    data['jumlah_ikan'],
+                                                'user_data': userData,
+                                              },
                                             ),
                                           ),
-                                          SizedBox(height: 5),
-                                          Text(
-                                            data[
-                                                'nama_kolam'], // Tampilkan deskripsi alat dari data Firestore
-                                            style: TextStyle(
-                                              color: Colors.grey,
-                                              fontSize: 15,
+                                        );
+                                      }
+                                    },
+                                    child: Dismissible(
+                                      key: Key(data['uid_kolam']),
+                                      confirmDismiss: (direction) async {
+                                        // Membuat dialog konfirmasi penghapusan
+                                        return showDialog(
+                                          context: context,
+                                          builder: (BuildContext context) {
+                                            return AlertDialog(
+                                              title: Text("Konfirmasi"),
+                                              content: Text(
+                                                  "Apakah Anda yakin ingin menghapus kolam ini?"),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () {
+                                                    Navigator.of(context)
+                                                        .pop(false);
+                                                  },
+                                                  child: Text("Tidak"),
+                                                ),
+                                                TextButton(
+                                                  onPressed: () async {
+                                                    Navigator.of(context)
+                                                        .pop(true);
+                                                    await FirebaseFirestore
+                                                        .instance
+                                                        .collection('datakolam')
+                                                        .doc(data['uid_kolam'])
+                                                        .delete();
+                                                  },
+                                                  child: Text("Ya"),
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        );
+                                      },
+                                      background: Container(
+                                        color: Colors.red,
+                                        child: Icon(Icons.delete),
+                                        alignment: Alignment.centerRight,
+                                        padding: EdgeInsets.only(right: 20),
+                                      ),
+                                      direction: DismissDirection.endToStart,
+                                      child: AnimatedContainer(
+                                        duration: Duration(milliseconds: 300),
+                                        curve: Curves.easeInOut,
+                                        width: double.infinity,
+                                        height: 85,
+                                        margin:
+                                            EdgeInsets.symmetric(vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black26,
+                                              spreadRadius: 1,
+                                              blurRadius: 1,
+                                              offset: Offset(1, 2),
                                             ),
-                                          ),
-                                          SizedBox(height: 5),
-                                          Text(
-                                            data[
-                                                'nama_kolam'], // Tampilkan deskripsi alat dari data Firestore
-                                            style: TextStyle(
-                                              color: Colors.grey,
-                                              fontSize: 15,
+                                          ],
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.all(10.0),
+                                              child: Image.network(
+                                                data['image'],
+                                                width: 100,
+                                                height: 100,
+                                                fit: BoxFit.cover,
+                                              ),
                                             ),
-                                          ),
-                                          SizedBox(height: 5),
-                                        ],
+                                            SizedBox(width: 5),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Text(
+                                                    data['nama_kolam'],
+                                                    style: TextStyle(
+                                                      color: Colors.blue[600],
+                                                      fontSize: 18,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                  SizedBox(height: 2),
+                                                  Text(
+                                                    data['nama_alat'],
+                                                    style: TextStyle(
+                                                      color: Colors.grey,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                  SizedBox(height: 5),
+                                                ],
+                                              ),
+                                            ),
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                  right: 5.0),
+                                              child: Icon(
+                                                Icons.chevron_right,
+                                                color: Colors.black87,
+                                                size: 40,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
-                                    Padding(
-                                      padding: const EdgeInsets.only(
-                                          right:
-                                              15.0), // Menggeser ikon lebih ke kiri
-                                      child: Icon(
-                                        Icons.chevron_right,
-                                        color: Colors.black87,
-                                        size: 40, // Memperbesar ukuran ikon
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        );
-                      },
+                                  );
+                                }).toList(),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          _showAddAlatForm(context);
-        },
-        child: Icon(Icons.add),
-        backgroundColor: Colors.blue,
       ),
       bottomNavigationBar: BottomNavBar(
         selectedIndex: _selectedIndex,
@@ -429,11 +556,13 @@ class _AddDataFormState extends State<AddDataForm> {
   String? _luasKolam;
   String? _jenisIkan;
   String? _jumlahIkan;
-  String? _totalPakan;
-  double _currentSliderValue = 20;
+  String? _userUid;
+
   @override
   void initState() {
     super.initState();
+    // Simulasi pengambilan user_uid dari autentikasi pengguna saat ini
+    _userUid = FirebaseAuth.instance.currentUser?.uid;
   }
 
   Future<void> _showLoadingDialog() async {
@@ -512,24 +641,31 @@ class _AddDataFormState extends State<AddDataForm> {
             .where('kode_alat', isEqualTo: _kodeAlat)
             .get();
         String alatDocId = alatSnapshot.docs.first.id;
+        String uidAlat = alatSnapshot.docs.first['uid_alat'];
 
         // Update status_alat ke 'berjalan' di data_alat
         await FirebaseFirestore.instance
             .collection('data_alat')
             .doc(alatDocId)
-            .update({'status_alat': 'berjalan'});
+            .update({'status_alat': 'Berjalan'});
 
         // Tambahkan data ke datakolam
-        await FirebaseFirestore.instance.collection('datakolam').add({
+        DocumentReference docRef =
+            await FirebaseFirestore.instance.collection('datakolam').add({
           'image': imageUrl,
+          'user_uid': _userUid,
+          'uid_alat': uidAlat,
           'kode_alat': _kodeAlat,
           'nama_alat': _namaAlat,
           'nama_kolam': _namaKolam,
           'luas_kolam': _luasKolam,
           'jenis_ikan': _jenisIkan,
           'jumlah_ikan': _jumlahIkan,
-          'total_pakan': _currentSliderValue.toInt().toString(),
+          'uid_kolam': '',
         });
+
+        // Perbarui dokumen dengan uid_kolam
+        await docRef.update({'uid_kolam': docRef.id});
 
         Navigator.of(context).pop();
         _showConfirmationDialog();
@@ -547,13 +683,13 @@ class _AddDataFormState extends State<AddDataForm> {
     }
   }
 
-  Future<List<String>> _getPendingKodeAlat() async {
+  Future<List<String>> _getPendingNamaAlat() async {
     QuerySnapshot snapshot = await FirebaseFirestore.instance
         .collection('data_alat')
-        .where('status_alat', isEqualTo: 'pending')
+        .where('status_alat', isEqualTo: 'Pending')
         .get();
 
-    return snapshot.docs.map((doc) => doc['kode_alat'] as String).toList();
+    return snapshot.docs.map((doc) => doc['nama_alat'] as String).toList();
   }
 
   @override
@@ -565,6 +701,19 @@ class _AddDataFormState extends State<AddDataForm> {
         child: ListView(
           shrinkWrap: true,
           children: [
+            Container(
+              padding: EdgeInsets.all(15.0),
+              color: Colors.white54,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Tambah Data Kolam',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
             if (_image == null)
               GestureDetector(
                 onTap: _pickImage,
@@ -580,183 +729,144 @@ class _AddDataFormState extends State<AddDataForm> {
                 color: Colors.grey[200],
                 child: Image.file(_image!, fit: BoxFit.cover),
               ),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: FutureBuilder<List<String>>(
-                    future: _getPendingKodeAlat(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return CircularProgressIndicator();
-                      } else if (snapshot.hasError) {
-                        return Text('Error: ${snapshot.error}');
-                      } else {
-                        List<String> pendingKodeAlat = snapshot.data!;
-                        return DropdownButtonFormField<String>(
-                          decoration: InputDecoration(labelText: 'Kode Alat'),
-                          value: _kodeAlat,
-                          onChanged: (String? value) async {
-                            setState(() {
-                              _kodeAlat = value;
-                            });
+            SizedBox(height: 10),
+            FutureBuilder<List<String>>(
+              future: _getPendingNamaAlat(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return CircularProgressIndicator();
+                } else if (snapshot.hasError) {
+                  return Text('Error: ${snapshot.error}');
+                } else {
+                  List<String> pendingNamaAlat = snapshot.data!;
+                  return DropdownButtonFormField<String>(
+                    decoration: InputDecoration(
+                      labelText: 'Nama Alat',
+                      border: OutlineInputBorder(),
+                    ),
+                    value: _namaAlat,
+                    onChanged: (String? value) async {
+                      setState(() {
+                        _namaAlat = value;
+                      });
 
-                            final QuerySnapshot snapshot =
-                                await FirebaseFirestore.instance
-                                    .collection('data_alat')
-                                    .where('kode_alat', isEqualTo: value)
-                                    .get();
-                            final List<DocumentSnapshot> documents =
-                                snapshot.docs;
-                            if (documents.isNotEmpty) {
-                              setState(() {
-                                _namaAlat = documents.first.get('nama_alat');
-                              });
-                            } else {
-                              setState(() {
-                                _namaAlat = '';
-                              });
-                            }
-                          },
-                          items: pendingKodeAlat
-                              .map((kodeAlat) => DropdownMenuItem<String>(
-                                    value: kodeAlat,
-                                    child: Text(kodeAlat),
-                                  ))
-                              .toList(),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Kode Alat tidak boleh kosong';
-                            }
-                            return null;
-                          },
-                        );
+                      final QuerySnapshot snapshot = await FirebaseFirestore
+                          .instance
+                          .collection('data_alat')
+                          .where('nama_alat', isEqualTo: value)
+                          .get();
+                      final List<DocumentSnapshot> documents = snapshot.docs;
+                      if (documents.isNotEmpty) {
+                        setState(() {
+                          _kodeAlat = documents.first.get('kode_alat');
+                        });
+                      } else {
+                        setState(() {
+                          _kodeAlat = '';
+                        });
                       }
                     },
-                  ),
-                ),
-                SizedBox(width: 10),
-                Expanded(
-                  child: TextFormField(
-                    decoration: InputDecoration(labelText: 'Nama Alat'),
-                    controller: TextEditingController(text: _namaAlat),
-                    enabled: false,
+                    items: pendingNamaAlat
+                        .map((namaAlat) => DropdownMenuItem<String>(
+                              value: namaAlat,
+                              child: Text(namaAlat),
+                            ))
+                        .toList(),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Nama Alat tidak boleh kosong';
                       }
                       return null;
                     },
-                    onSaved: (value) {
-                      _namaAlat = value ?? '';
-                    },
-                  ),
-                ),
-              ],
+                  );
+                }
+              },
             ),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    decoration: InputDecoration(labelText: 'Nama Kolam'),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Nama Kolam tidak boleh kosong';
-                      }
-                      return null;
-                    },
-                    onSaved: (value) {
-                      _namaKolam = value;
-                    },
-                  ),
-                ),
-                SizedBox(width: 10),
-                Expanded(
-                  child: TextFormField(
-                    decoration: InputDecoration(labelText: 'Luas Kolam (m²)'),
-                    keyboardType: TextInputType.number,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Luas Kolam tidak boleh kosong';
-                      }
-                      return null;
-                    },
-                    onSaved: (value) {
-                      _luasKolam = value;
-                    },
-                  ),
-                ),
-              ],
+            SizedBox(height: 10),
+            TextFormField(
+              decoration: InputDecoration(
+                labelText: 'Kode Alat',
+                border: OutlineInputBorder(),
+              ),
+              controller: TextEditingController(text: _kodeAlat),
+              enabled: false,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Kode Alat tidak boleh kosong';
+                }
+                return null;
+              },
+              onSaved: (value) {
+                _kodeAlat = value ?? '';
+              },
             ),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    decoration: InputDecoration(labelText: 'Jenis Ikan'),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Jenis Ikan tidak boleh kosong';
-                      }
-                      return null;
-                    },
-                    onSaved: (value) {
-                      _jenisIkan = value;
-                    },
-                  ),
-                ),
-                SizedBox(width: 10),
-                Expanded(
-                  child: TextFormField(
-                    decoration:
-                        InputDecoration(labelText: 'Jumlah Ikan (ekor)'),
-                    keyboardType: TextInputType.number,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Jumlah Ikan tidak boleh kosong';
-                      }
-                      return null;
-                    },
-                    onSaved: (value) {
-                      _jumlahIkan = value;
-                    },
-                  ),
-                ),
-              ],
+            SizedBox(height: 10),
+            TextFormField(
+              decoration: InputDecoration(
+                labelText: 'Nama Kolam',
+                border: OutlineInputBorder(),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Nama Kolam tidak boleh kosong';
+                }
+                return null;
+              },
+              onSaved: (value) {
+                _namaKolam = value;
+              },
+            ),
+            SizedBox(height: 10),
+            TextFormField(
+              decoration: InputDecoration(
+                labelText: 'Luas Kolam (m²)',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.number,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Luas Kolam tidak boleh kosong';
+                }
+                return null;
+              },
+              onSaved: (value) {
+                _luasKolam = value;
+              },
+            ),
+            SizedBox(height: 10),
+            TextFormField(
+              decoration: InputDecoration(
+                labelText: 'Jenis Ikan',
+                border: OutlineInputBorder(),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Jenis Ikan tidak boleh kosong';
+                }
+                return null;
+              },
+              onSaved: (value) {
+                _jenisIkan = value;
+              },
+            ),
+            SizedBox(height: 10),
+            TextFormField(
+              decoration: InputDecoration(
+                labelText: 'Jumlah Ikan (ekor)',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.number,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Jumlah Ikan tidak boleh kosong';
+                }
+                return null;
+              },
+              onSaved: (value) {
+                _jumlahIkan = value;
+              },
             ),
             SizedBox(height: 18),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Jumlah Pakan',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                SizedBox(height: 8),
-                Container(
-                  padding: EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Slider(
-                        value: _currentSliderValue,
-                        max: 1000,
-                        divisions: 10,
-                        label: _currentSliderValue.round().toString(),
-                        onChanged: (double value) {
-                          setState(() {
-                            _currentSliderValue = value;
-                          });
-                        },
-                      ),
-                      Text(' Total: ${_currentSliderValue.round()} (g)'),
-                    ],
-                  ),
-                ),
-              ],
-            ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -772,17 +882,14 @@ class _AddDataFormState extends State<AddDataForm> {
                     backgroundColor: Colors.white,
                     foregroundColor: Colors.red,
                   ),
-                  child: Text('Cancel'),
+                  child: Text('Batal'),
                 ),
                 ElevatedButton(
                   onPressed: _submitForm,
                   style: ElevatedButton.styleFrom(
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10.0),
-                      side: BorderSide(color: Colors.green, width: 2.0),
                     ),
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
                   ),
                   child: Text('Simpan'),
                 ),
@@ -793,11 +900,4 @@ class _AddDataFormState extends State<AddDataForm> {
       ),
     );
   }
-}
-
-void _showAddAlatForm(BuildContext context) {
-  Navigator.push(
-    context,
-    MaterialPageRoute(builder: (context) => FormPengisianDataPage()),
-  );
 }

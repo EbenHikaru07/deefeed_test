@@ -1,273 +1,154 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'dart:async';
 
 void main() {
-  runApp(MyApp2());
+  runApp(MaterialApp(
+    home: MyApp2(),
+  ));
 }
 
-class MyApp2 extends StatelessWidget {
+class MyApp2 extends StatefulWidget {
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: HomePage(),
-    );
+  _MyApp2State createState() => _MyApp2State();
+}
+
+class _MyApp2State extends State<MyApp2> {
+  DateTime selectedDateTime = DateTime.now();
+  double feedingAmount = 100.0;
+  double progress = 0.0;
+  late Timer _timer;
+
+  void _updateProgress() {
+    setState(() {
+      final now = DateTime.now();
+      if (now.isAfter(selectedDateTime) && progress < 100) {
+        double timeToComplete = (feedingAmount / 100) * 5;
+        double progressPerSecond = 100 / timeToComplete;
+        progress += progressPerSecond;
+        if (progress >= 100) {
+          progress = 100;
+          _timer.cancel();
+        }
+      }
+    });
   }
-}
 
-class HomePage extends StatefulWidget {
   @override
-  _HomePageState createState() => _HomePageState();
-}
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(Duration(seconds: 1), (timer) {
+      _updateProgress();
+    });
+  }
 
-class _HomePageState extends State<HomePage> {
-  List<FeedingSchedule> schedules = [];
-
-  void _showAddScheduleModal(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      builder: (BuildContext context) {
-        return AddScheduleModal(onSave: (schedule) {
-          setState(() {
-            schedules.add(schedule);
-          });
-        });
-      },
-    );
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Sistem Pemberi Pakan Ikan Otomatis'),
+        title: Text('Form Pemilihan Tanggal dan Jam'),
       ),
-      body: schedules.isEmpty
-          ? Center(child: Text('Belum ada jadwal'))
-          : ListView.builder(
-              itemCount: schedules.length,
-              itemBuilder: (context, index) {
-                final schedule = schedules[index];
-                return Card(
-                  margin: EdgeInsets.all(8),
-                  child: ExpansionTile(
-                    title: Text(
-                      'Tanggal: ${DateFormat('d MMMM yyyy').format(schedule.startDate)} - ${DateFormat('d MMMM yyyy').format(schedule.endDate)}',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    children: schedule.feedings.map((feeding) {
-                      return ListTile(
-                        title: Text(
-                          'Waktu Pemberian Pakan',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Text(
-                          '${feeding.startTime.format(context)} - ${feeding.endTime.format(context)}',
-                        ),
+      body: Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              'Pilih Tanggal dan Jam:',
+              style: TextStyle(fontSize: 18),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final DateTime? picked = await showDatePicker(
+                  context: context,
+                  initialDate: selectedDateTime,
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2101),
+                );
+                if (picked != null) {
+                  final TimeOfDay? pickedTime = await showTimePicker(
+                    context: context,
+                    initialTime: TimeOfDay.fromDateTime(selectedDateTime),
+                  );
+                  if (pickedTime != null) {
+                    setState(() {
+                      selectedDateTime = DateTime(
+                        picked.year,
+                        picked.month,
+                        picked.day,
+                        pickedTime.hour,
+                        pickedTime.minute,
                       );
-                    }).toList(),
-                  ),
-                );
+                      progress = 0.0;
+                      _timer.cancel();
+                      _timer = Timer.periodic(Duration(seconds: 1), (timer) {
+                        _updateProgress();
+                      });
+                    });
+                  }
+                }
+              },
+              child: Text('Pilih Tanggal dan Jam'),
+            ),
+            SizedBox(height: 20),
+            Text(
+              'Pilih Jumlah Pakan Ikan:',
+              style: TextStyle(fontSize: 18),
+            ),
+            Slider(
+              value: feedingAmount,
+              min: 100,
+              max: 2000,
+              divisions: 19,
+              label: feedingAmount.round().toString(),
+              onChanged: (double value) {
+                setState(() {
+                  feedingAmount = value;
+                });
               },
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddScheduleModal(context),
-        child: Icon(Icons.add),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  progress = 0.0;
+                });
+              },
+              child: Text('Mulai Pemberian Pakan'),
+            ),
+            SizedBox(height: 20),
+            Column(
+              children: [
+                Text(
+                  'Tanggal dan Jam: ${DateFormat('dd/MM/yyyy HH:mm').format(selectedDateTime)}',
+                  style: TextStyle(fontSize: 16),
+                ),
+                Text(
+                  'Jumlah Pakan: ${feedingAmount.toInt()}',
+                  style: TextStyle(fontSize: 16),
+                ),
+                SizedBox(height: 20),
+                Text(
+                  'Progress: ${(progress).toStringAsFixed(2)}%',
+                  style: TextStyle(fontSize: 16),
+                ),
+                SizedBox(height: 20),
+                LinearProgressIndicator(
+                  value: progress / 100,
+                  backgroundColor: Colors.grey,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
-}
-
-class AddScheduleModal extends StatefulWidget {
-  final Function(FeedingSchedule) onSave;
-
-  AddScheduleModal({required this.onSave});
-
-  @override
-  _AddScheduleModalState createState() => _AddScheduleModalState();
-}
-
-class _AddScheduleModalState extends State<AddScheduleModal> {
-  DateTime _startDate = DateTime.now();
-  DateTime _endDate = DateTime.now().add(Duration(days: 1));
-  int _feedTimesPerDay = 1;
-  List<FeedingTime> _feedTimes = [
-    FeedingTime(
-        startTime: TimeOfDay(hour: 8, minute: 0),
-        endTime: TimeOfDay(hour: 10, minute: 0))
-  ];
-
-  _pickDateRange() async {
-    DateTimeRange? dateRange = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2101),
-      initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
-    );
-
-    if (dateRange != null) {
-      setState(() {
-        _startDate = dateRange.start;
-        _endDate = dateRange.end;
-      });
-    }
-  }
-
-  _pickTime(int index, bool isStartTime) async {
-    TimeOfDay initialTime =
-        isStartTime ? _feedTimes[index].startTime : _feedTimes[index].endTime;
-    TimeOfDay? time = await showTimePicker(
-      context: context,
-      initialTime: initialTime,
-    );
-
-    if (time != null) {
-      setState(() {
-        if (isStartTime) {
-          _feedTimes[index] =
-              FeedingTime(startTime: time, endTime: _feedTimes[index].endTime);
-        } else {
-          _feedTimes[index] = FeedingTime(
-              startTime: _feedTimes[index].startTime, endTime: time);
-        }
-      });
-    }
-  }
-
-  int _timeOfDayToMinutes(TimeOfDay time) {
-    return time.hour * 60 + time.minute;
-  }
-
-  bool _isEndTimeBeforeStartTime(FeedingTime feeding) {
-    int startTimeInMinutes = _timeOfDayToMinutes(feeding.startTime);
-    int endTimeInMinutes = _timeOfDayToMinutes(feeding.endTime);
-    return endTimeInMinutes <= startTimeInMinutes;
-  }
-
-  _saveSchedule() {
-    if (_feedTimes.any((feeding) => _isEndTimeBeforeStartTime(feeding))) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Waktu mulai harus sebelum waktu selesai')),
-      );
-      return;
-    }
-
-    final newSchedule = FeedingSchedule(
-      startDate: _startDate,
-      endDate: _endDate,
-      feedings: _feedTimes,
-    );
-    widget.onSave(newSchedule);
-    Navigator.pop(context);
-  }
-
-  _updateFeedTimes(int times) {
-    setState(() {
-      _feedTimesPerDay = times;
-      _feedTimes = List<FeedingTime>.generate(
-        times,
-        (index) => index < _feedTimes.length
-            ? _feedTimes[index]
-            : FeedingTime(
-                startTime: TimeOfDay(hour: 8 + index * 2, minute: 0),
-                endTime: TimeOfDay(hour: 10 + index * 2, minute: 0),
-              ),
-      );
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(16),
-      height: 400,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            'Tambah Jadwal Pemberian Pakan',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 10),
-          ListTile(
-            title: Text(
-                'Tanggal: ${DateFormat('d MMMM yyyy').format(_startDate)} - ${DateFormat('d MMMM yyyy').format(_endDate)}'),
-            trailing: Icon(Icons.calendar_today),
-            onTap: _pickDateRange,
-          ),
-          DropdownButton<int>(
-            value: _feedTimesPerDay,
-            items: [1, 2, 3, 4, 5].map((int value) {
-              return DropdownMenuItem<int>(
-                value: value,
-                child: Text('$value kali sehari'),
-              );
-            }).toList(),
-            onChanged: (int? newValue) {
-              if (newValue != null) {
-                _updateFeedTimes(newValue);
-              }
-            },
-          ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: _feedTimesPerDay,
-              itemBuilder: (context, index) {
-                return ListTile(
-                  title: Text('Pemberian Pakan ${index + 1}'),
-                  subtitle: Row(
-                    children: [
-                      Expanded(
-                        child: ListTile(
-                          title: Text(
-                              'Mulai: ${_feedTimes[index].startTime.format(context)}'),
-                          trailing: Icon(Icons.access_time),
-                          onTap: () => _pickTime(index, true),
-                        ),
-                      ),
-                      SizedBox(width: 10),
-                      Expanded(
-                        child: ListTile(
-                          title: Text(
-                              'Selesai: ${_feedTimes[index].endTime.format(context)}'),
-                          trailing: Icon(Icons.access_time),
-                          onTap: () => _pickTime(index, false),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-          SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: _saveSchedule,
-            child: Text('Simpan'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class FeedingSchedule {
-  final DateTime startDate;
-  final DateTime endDate;
-  final List<FeedingTime> feedings;
-
-  FeedingSchedule({
-    required this.startDate,
-    required this.endDate,
-    required this.feedings,
-  });
-}
-
-class FeedingTime {
-  final TimeOfDay startTime;
-  final TimeOfDay endTime;
-
-  FeedingTime({
-    required this.startTime,
-    required this.endTime,
-  });
 }
